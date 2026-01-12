@@ -5,9 +5,7 @@ import type React from "react"
 import { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { TopNav } from "./top-nav"
 import { CategoryFilters } from "./category-filters"
-import { EventMeta } from "./event-meta"
 
-// Event data with images
 const events = [
   {
     id: 1,
@@ -71,22 +69,19 @@ const events = [
   },
 ]
 
-// Fixed organic positions for nodes (percentage based)
-// These create the scattered web-like layout seen in the reference
 const nodePositions = [
-  { x: 38, y: 22 }, // Top center-left (horse/main)
-  { x: 62, y: 12 }, // Top right (Bowie)
-  { x: 12, y: 32 }, // Left side
-  { x: 55, y: 52 }, // Center right
-  { x: 78, y: 42 }, // Far right
-  { x: 30, y: 62 }, // Lower left
-  { x: 70, y: 68 }, // Lower right
-  { x: 8, y: 72 }, // Bottom left corner
-  { x: 92, y: 8 }, // Top right corner
-  { x: 85, y: 85 }, // Bottom right
+  { x: 38, y: 22 },
+  { x: 62, y: 12 },
+  { x: 12, y: 32 },
+  { x: 55, y: 52 },
+  { x: 78, y: 42 },
+  { x: 30, y: 62 },
+  { x: 70, y: 68 },
+  { x: 8, y: 72 },
+  { x: 92, y: 8 },
+  { x: 85, y: 85 },
 ]
 
-// Define which nodes connect to each other for the red web
 const redConnections = [
   [1, 3],
   [1, 4],
@@ -124,9 +119,8 @@ export function RadialNetwork() {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
 
   const [scale, setScale] = useState(1)
-  const [origin, setOrigin] = useState({ x: 50, y: 50 }) // percentage based
   const [nearestNodeId, setNearestNodeId] = useState<number | null>(null)
-  const zoomThreshold = 2.5 // Scale at which we enter focused view
+  const zoomThreshold = 2.5
 
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -183,67 +177,24 @@ export function RadialNetwork() {
     [dimensions, filteredEvents, scale, panOffset],
   )
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      if (isZooming) return
-      e.preventDefault()
+  const getPixelPos = (percentX: number, percentY: number) => ({
+    x: (percentX / 100) * dimensions.width,
+    y: (percentY / 100) * dimensions.height,
+  })
 
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      const cursorX = e.clientX - rect.left
-      const cursorY = e.clientY - rect.top
-
-      // Calculate new scale
-      const delta = -e.deltaY * 0.002
-      const newScale = Math.max(0.5, Math.min(5, scale + delta * scale))
-
-      if (newScale !== scale) {
-        // Calculate the point under cursor in world coordinates
-        const worldX = (cursorX - panOffset.x) / scale
-        const worldY = (cursorY - panOffset.y) / scale
-
-        // Calculate new pan offset to keep the point under cursor
-        const newPanX = cursorX - worldX * newScale
-        const newPanY = cursorY - worldY * newScale
-
-        setPanOffset({ x: newPanX, y: newPanY })
-      }
-
-      // Find nearest node when zooming in
-      if (newScale > 1.5) {
-        const nearest = findNearestNode(cursorX, cursorY)
-        setNearestNodeId(nearest)
-      } else {
-        setNearestNodeId(null)
-      }
-
-      // If zooming in past threshold and we have a nearest node, enter focused view
-      if (newScale >= zoomThreshold && !selectedEventId && nearestNodeId) {
-        enterFocusedView(nearestNodeId)
-        return
-      }
-
-      // If zooming out from focused view
-      if (selectedEventId && newScale < 1) {
-        handleZoomOut()
-        return
-      }
-
-      // If in focused view, allow zoom out
-      if (selectedEventId) {
-        if (scale > 0.6 && newScale <= 0.6) {
-          handleZoomOut()
-          return
-        }
-        setScale(newScale)
-        return
-      }
-
-      setScale(newScale)
-    },
-    [scale, selectedEventId, isZooming, dimensions, findNearestNode, nearestNodeId, panOffset],
-  )
+  const getEdgePoints = () => {
+    const points = []
+    const numLines = 16
+    for (let i = 0; i < numLines; i++) {
+      const angle = (i / numLines) * Math.PI * 2
+      const distance = Math.max(dimensions.width, dimensions.height)
+      points.push({
+        x: dimensions.width / 2 + Math.cos(angle) * distance,
+        y: dimensions.height / 2 + Math.sin(angle) * distance,
+      })
+    }
+    return points
+  }
 
   const enterFocusedView = useCallback(
     (id: number) => {
@@ -254,7 +205,6 @@ export function RadialNetwork() {
       const nodePixelX = (pos.x / 100) * dimensions.width
       const nodePixelY = (pos.y / 100) * dimensions.height
 
-      // Calculate the pan offset needed to center this node
       const targetPanX = dimensions.width / 2 - nodePixelX * 4
       const targetPanY = dimensions.height / 2 - nodePixelY * 4
 
@@ -263,7 +213,6 @@ export function RadialNetwork() {
       setIsZooming(true)
       setZoomTransition(true)
 
-      // Animate zoom to the node position
       setScale(4)
       setPanOffset({ x: targetPanX, y: targetPanY })
 
@@ -283,13 +232,6 @@ export function RadialNetwork() {
 
   const selectedEvent = selectedEventId ? events.find((e) => e.id === selectedEventId) : null
 
-  const handleNodeClick = useCallback(
-    (id: number) => {
-      enterFocusedView(id)
-    },
-    [enterFocusedView],
-  )
-
   const handleZoomOut = useCallback(() => {
     if (selectedEventId) {
       const idx = events.findIndex((e) => e.id === selectedEventId)
@@ -304,13 +246,11 @@ export function RadialNetwork() {
         setZoomTransition(true)
         setSelectedEventId(null)
 
-        // Start zoomed in at the node position, then zoom out
         const startPanX = dimensions.width / 2 - nodePixelX * 4
         const startPanY = dimensions.height / 2 - nodePixelY * 4
         setScale(4)
         setPanOffset({ x: startPanX, y: startPanY })
 
-        // Small delay then animate to scale 1
         requestAnimationFrame(() => {
           setTimeout(() => {
             setScale(1)
@@ -332,6 +272,68 @@ export function RadialNetwork() {
       }
     }
   }, [selectedEventId, dimensions])
+
+  const handleNodeClick = useCallback(
+    (id: number) => {
+      enterFocusedView(id)
+    },
+    [enterFocusedView],
+  )
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (isZooming) return
+      e.preventDefault()
+
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const cursorX = e.clientX - rect.left
+      const cursorY = e.clientY - rect.top
+
+      const delta = -e.deltaY * 0.002
+      const newScale = Math.max(0.5, Math.min(5, scale + delta * scale))
+
+      if (newScale !== scale) {
+        const worldX = (cursorX - panOffset.x) / scale
+        const worldY = (cursorY - panOffset.y) / scale
+
+        const newPanX = cursorX - worldX * newScale
+        const newPanY = cursorY - worldY * newScale
+
+        setPanOffset({ x: newPanX, y: newPanY })
+      }
+
+      if (newScale > 1.5) {
+        const nearest = findNearestNode(cursorX, cursorY)
+        setNearestNodeId(nearest)
+      } else {
+        setNearestNodeId(null)
+      }
+
+      if (newScale >= zoomThreshold && !selectedEventId && nearestNodeId) {
+        enterFocusedView(nearestNodeId)
+        return
+      }
+
+      if (selectedEventId && newScale < 1) {
+        handleZoomOut()
+        return
+      }
+
+      if (selectedEventId) {
+        if (scale > 0.6 && newScale <= 0.6) {
+          handleZoomOut()
+          return
+        }
+        setScale(newScale)
+        return
+      }
+
+      setScale(newScale)
+    },
+    [scale, selectedEventId, isZooming, findNearestNode, nearestNodeId, panOffset, enterFocusedView, handleZoomOut],
+  )
 
   const handleBackgroundClick = useCallback(
     (e: React.MouseEvent) => {
@@ -368,25 +370,6 @@ export function RadialNetwork() {
     setIsDragging(false)
   }, [])
 
-  const getPixelPos = (percentX: number, percentY: number) => ({
-    x: (percentX / 100) * dimensions.width,
-    y: (percentY / 100) * dimensions.height,
-  })
-
-  const getEdgePoints = () => {
-    const points = []
-    const numLines = 16
-    for (let i = 0; i < numLines; i++) {
-      const angle = (i / numLines) * Math.PI * 2
-      const distance = Math.max(dimensions.width, dimensions.height)
-      points.push({
-        x: dimensions.width / 2 + Math.cos(angle) * distance,
-        y: dimensions.height / 2 + Math.sin(angle) * distance,
-      })
-    }
-    return points
-  }
-
   const networkTransformStyle = useMemo(() => {
     if (selectedEventId && !isZooming) return {}
     return {
@@ -411,20 +394,14 @@ export function RadialNetwork() {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Top Navigation */}
       <TopNav onBackClick={selectedEvent ? handleZoomOut : undefined} />
-
-      {/* Category Filters */}
       <CategoryFilters activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
 
       {!selectedEventId && (
         <div className="absolute inset-0" style={networkTransformStyle}>
-          {/* SVG Lines Layer */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-            {/* Network view: Red web connections between nodes */}
             {dimensions.width > 0 && (
               <>
-                {/* Red connections between nodes */}
                 {redConnections.map(([from, to], i) => {
                   const fromEvent = filteredEvents.find((e) => e.id === from)
                   const toEvent = filteredEvents.find((e) => e.id === to)
@@ -451,7 +428,6 @@ export function RadialNetwork() {
                   )
                 })}
 
-                {/* Gray lines from hovered node OR nearest node when zooming */}
                 {(hoveredEventId || nearestNodeId) && (
                   <>
                     {filteredEvents.map((event) => {
@@ -482,7 +458,6 @@ export function RadialNetwork() {
             )}
           </svg>
 
-          {/* Image Nodes - Network View */}
           <div className="absolute inset-0" style={{ zIndex: 2 }}>
             {filteredEvents.map((event) => {
               const idx = events.findIndex((e) => e.id === event.id)
@@ -524,10 +499,8 @@ export function RadialNetwork() {
         </div>
       )}
 
-      {/* Focused View - Large Center Image */}
       {selectedEvent && !isZooming && (
         <>
-          {/* Radial lines from center */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
             {getEdgePoints().map((point, i) => (
               <line
@@ -564,9 +537,6 @@ export function RadialNetwork() {
           </div>
         </>
       )}
-
-      {/* Event Metadata - Only show in focused view */}
-      {selectedEvent && !isZooming && <EventMeta event={selectedEvent} />}
 
       {!selectedEvent && !isZooming && scale !== 1 && (
         <div className="absolute bottom-4 left-4 text-white/50 text-sm font-mono" style={{ zIndex: 100 }}>

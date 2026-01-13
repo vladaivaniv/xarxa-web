@@ -127,15 +127,34 @@ export function useNetworkInteractions({
   )
 
   const handleNodeClick = useCallback(
-    (id: number) => {
+    (id: number, mousePos?: { x: number; y: number }) => {
       // Desactivar el filtro de categoría cuando se hace clic en un nodo
       setActiveCategory(null)
 
       if (scale > 1.0 && selectedEventId === id) {
         setIsZooming(true)
         setZoomTransition(true)
+        
+        // Si tenemos la posición del mouse, calcular el nuevo panOffset para mantener el punto bajo el cursor
+        let newPanOffset = { x: 0, y: 0 }
+        
+        if (mousePos) {
+          // Calcular la posición del cursor en el espacio del "mundo" (coordenadas sin transform)
+          // Con el scale actual (4.0), calcular qué punto del mundo está bajo el cursor
+          const worldX = (mousePos.x - panOffset.x) / scale
+          const worldY = (mousePos.y - panOffset.y) / scale
+          
+          // Calcular nuevo panOffset para mantener el mismo punto del mundo bajo el cursor
+          // Después del zoom out a scale 1.0, queremos que el mismo punto del mundo permanezca en la misma posición visual
+          // Formula: newPan = cursor - world * newScale
+          newPanOffset = {
+            x: mousePos.x - worldX * 1.0,
+            y: mousePos.y - worldY * 1.0,
+          }
+        }
+        
         setScale(1.0)
-        setPanOffset({ x: 0, y: 0 })
+        setPanOffset(newPanOffset)
         setSelectedEventId(null)
         setNearestNodeId(null)
 
@@ -177,7 +196,7 @@ export function useNetworkInteractions({
         setNearestNodeId(null)
       }, 500)
     },
-    [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos, setActiveCategory],
+    [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos, setActiveCategory, panOffset],
   )
 
   // Calcular límites de pan basados en scale y dimensions

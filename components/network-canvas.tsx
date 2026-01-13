@@ -13,7 +13,7 @@ interface NetworkCanvasProps {
   scale: number
   panOffset: { x: number; y: number }
   nearestNodeId: number | null
-  onNodeClick: (id: number) => void
+  onNodeClick: (id: number, mousePos?: { x: number; y: number }) => void
   onNodeHover: (id: number | null) => void
   onMouseDown?: (e: React.MouseEvent) => void
   onMouseMove?: (e: React.MouseEvent) => void
@@ -432,6 +432,10 @@ export const NetworkCanvas = memo(function NetworkCanvas({
       let x = e.clientX - rect.left
       let y = e.clientY - rect.top
       
+      // Guardar la posición del mouse en coordenadas de vista (sin transform)
+      const mouseX = x
+      const mouseY = y
+      
       // Convertir de coordenadas de vista (sin transform) a coordenadas del canvas transformado
       // El canvas tiene translate(panOffset) y scale(scale) aplicados
       // Inverso: (x - panOffset) / scale
@@ -440,7 +444,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
       const nodeId = getNodeAtPosition(x, y)
       if (nodeId !== null) {
-        onNodeClick(nodeId)
+        onNodeClick(nodeId, { x: mouseX, y: mouseY })
       }
     },
     [getNodeAtPosition, onNodeClick, dimensions, panOffset, scale],

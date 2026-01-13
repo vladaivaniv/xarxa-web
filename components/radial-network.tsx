@@ -193,7 +193,7 @@ export function RadialNetwork() {
       <TopNav />
       <CategoryFilters activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
 
-      <div className="absolute inset-0" style={networkTransformStyle}>
+      <div className="absolute inset-0">
         <NetworkCanvas
           dimensions={dimensions}
           nodePositions={nodePositions}
@@ -202,6 +202,7 @@ export function RadialNetwork() {
           scaleNodePosition={scaleNodePosition}
           getPixelPos={getPixelPos}
           scale={scale}
+          panOffset={panOffset}
           nearestNodeId={nearestNodeId}
           onNodeClick={handleNodeClick}
           onNodeHover={setHoveredEventId}

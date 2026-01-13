@@ -11,6 +11,7 @@ interface NetworkCanvasProps {
   scaleNodePosition: (percentX: number, percentY: number) => { x: number; y: number }
   getPixelPos: (percentX: number, percentY: number) => { x: number; y: number }
   scale: number
+  panOffset: { x: number; y: number }
   nearestNodeId: number | null
   onNodeClick: (id: number) => void
   onNodeHover: (id: number | null) => void
@@ -24,6 +25,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   scaleNodePosition,
   getPixelPos,
   scale,
+  panOffset,
   nearestNodeId,
   onNodeClick,
   onNodeHover,
@@ -95,6 +97,13 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
     // Limpiar canvas - usar las dimensiones de display (sin DPR ya que estamos escalados)
     ctx.clearRect(0, 0, displayWidth, displayHeight)
+    
+    // Aplicar zoom y pan directamente en el canvas
+    // Simular el comportamiento del CSS transform: translate3d(panOffset) scale(scale)
+    // Orden: primero translate, luego scale (para que el scale se aplique alrededor del origen del translate)
+    ctx.save()
+    ctx.translate(panOffset.x, panOffset.y)
+    ctx.scale(scale, scale)
 
     const nodeSize = getNodeSize()
 
@@ -198,6 +207,9 @@ export const NetworkCanvas = memo(function NetworkCanvas({
       ctx.shadowBlur = 0
       ctx.shadowOffsetY = 0
     }
+    
+    // Restaurar transformación (deshacer scale y translate)
+    ctx.restore()
   }, [
     dimensions,
     nodePositions,
@@ -205,6 +217,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     getPixelPos,
     getNodeSize,
     scale,
+    panOffset,
     selectedEventId,
     nearestNodeId,
     devicePixelRatio,
@@ -317,15 +330,15 @@ export const NetworkCanvas = memo(function NetworkCanvas({
       hoverThrottleRef.current = requestAnimationFrame(() => {
         const rect = canvas.getBoundingClientRect()
         // Convertir coordenadas del viewport a coordenadas del canvas
-        // El canvas usa dimensions.width/height, pero getBoundingClientRect puede diferir por el transform CSS
+        // Ahora el zoom y pan se aplican en el canvas, así que convertimos directamente
         let x = e.clientX - rect.left
         let y = e.clientY - rect.top
         
-        // Escalar si hay diferencia entre rect y dimensions (debido a transform CSS)
-        if (rect.width > 0 && rect.height > 0) {
-          x = x * (dimensions.width / rect.width)
-          y = y * (dimensions.height / rect.height)
-        }
+        // Convertir de coordenadas de vista (sin transform) a coordenadas del canvas transformado
+        // El canvas tiene translate(panOffset) y scale(scale) aplicados
+        // Inverso: (x - panOffset) / scale
+        x = (x - panOffset.x) / scale
+        y = (y - panOffset.y) / scale
 
         const nodeId = getNodeAtPosition(x, y)
         if (nodeId !== hoveredNodeRef.current) {
@@ -343,7 +356,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
         hoverThrottleRef.current = null
       })
     },
-    [getNodeAtPosition, onNodeHover, drawCanvas, dimensions],
+    [getNodeAtPosition, onNodeHover, drawCanvas, dimensions, panOffset, scale],
   )
 
   const handleClick = useCallback(
@@ -353,21 +366,22 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
       const rect = canvas.getBoundingClientRect()
       // Convertir coordenadas del viewport a coordenadas del canvas
+      // Ahora el zoom y pan se aplican en el canvas, así que convertimos directamente
       let x = e.clientX - rect.left
       let y = e.clientY - rect.top
       
-      // Escalar si hay diferencia entre rect y dimensions (debido a transform CSS)
-      if (rect.width > 0 && rect.height > 0) {
-        x = x * (dimensions.width / rect.width)
-        y = y * (dimensions.height / rect.height)
-      }
+      // Convertir de coordenadas de vista (sin transform) a coordenadas del canvas transformado
+      // El canvas tiene translate(panOffset) y scale(scale) aplicados
+      // Inverso: (x - panOffset) / scale
+      x = (x - panOffset.x) / scale
+      y = (y - panOffset.y) / scale
 
       const nodeId = getNodeAtPosition(x, y)
       if (nodeId !== null) {
         onNodeClick(nodeId)
       }
     },
-    [getNodeAtPosition, onNodeClick, dimensions],
+    [getNodeAtPosition, onNodeClick, dimensions, panOffset, scale],
   )
 
   const handleMouseLeave = useCallback(() => {

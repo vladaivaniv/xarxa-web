@@ -93,7 +93,14 @@ export const NetworkNodes = memo(function NetworkNodes({
   }, [scale])
 
   return (
-    <div className="absolute inset-0" style={{ zIndex: 2, willChange: 'transform' }}>
+    <div 
+      className="absolute inset-0" 
+      style={{ 
+        zIndex: 2, 
+        willChange: scale > 1.2 ? 'transform' : 'auto',
+        contain: 'layout style paint', // Optimización de rendering
+      }}
+    >
       {visibleNodes.map((event) => {
         const eventData = eventsById.get(event.id)
         if (!eventData || eventData.idx >= nodePositions.length) return null

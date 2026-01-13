@@ -51,10 +51,11 @@ export const NetworkConnections = memo(function NetworkConnections({
   const svgWidth = dimensions.width
   const svgHeight = dimensions.height
 
-  // Solo renderizar conexiones visibles o relevantes cuando el zoom es bajo
+  // Optimizar renderizado de conexiones durante zoom
   const visibleConnections = useMemo(() => {
-    if (scale > 0.7) {
-      // En zoom bajo, mostrar solo conexiones activas o de categoría seleccionada
+    // Durante zoom (escala cambiando), reducir conexiones para mejor rendimiento
+    if (scale < 0.8) {
+      // Zoom muy bajo - mostrar solo conexiones activas
       if (activeCategory || selectedEventId) {
         return redConnections.filter(([from, to]) => {
           const fromData = eventsById.get(from)
@@ -73,9 +74,29 @@ export const NetworkConnections = memo(function NetworkConnections({
         })
       }
       // Si no hay filtro activo y zoom bajo, mostrar menos conexiones
-      return redConnections.slice(0, Math.floor(redConnections.length * 0.3))
+      return redConnections.slice(0, Math.floor(redConnections.length * 0.2))
+    } else if (scale < 1.2) {
+      // Zoom medio - mostrar más conexiones pero no todas
+      if (activeCategory || selectedEventId) {
+        return redConnections.filter(([from, to]) => {
+          const fromData = eventsById.get(from)
+          const toData = eventsById.get(to)
+          if (!fromData || !toData) return false
+          
+          if (activeCategory) {
+            return fromData.event.category === activeCategory || toData.event.category === activeCategory
+          }
+          
+          if (selectedEventId) {
+            return from === selectedEventId || to === selectedEventId
+          }
+          
+          return false
+        })
+      }
+      return redConnections.slice(0, Math.floor(redConnections.length * 0.5))
     }
-    // En zoom alto, mostrar todas las conexiones
+    // Zoom alto - mostrar todas las conexiones (pero solo cuando está estable)
     return redConnections
   }, [redConnections, activeCategory, selectedEventId, scale])
 
@@ -128,7 +149,7 @@ export const NetworkConnections = memo(function NetworkConnections({
 
         return (
           <line
-            key={`connection-${i}`}
+            key={`connection-${from}-${to}`}
             x1={fromPos.x}
             y1={fromPos.y}
             x2={toPos.x}
@@ -138,7 +159,9 @@ export const NetworkConnections = memo(function NetworkConnections({
             opacity={lineOpacity}
             strokeLinecap="round"
             filter={isRed ? "url(#glow)" : undefined}
-            className="transition-all duration-300"
+            style={{ 
+              transition: scale > 1.2 ? 'none' : 'opacity 0.2s ease-out'
+            }}
           />
         )
       })}

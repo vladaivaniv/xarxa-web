@@ -169,9 +169,11 @@ export function useNetworkInteractions({
     [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos],
   )
 
-  // Throttle para wheel events - máximo 60fps
+  // Throttle para wheel events - más agresivo durante zoom
   const lastWheelTimeRef = useRef(0)
-  const WHEEL_THROTTLE_MS = 16 // ~60fps
+  const isZoomingRef = useRef(false)
+  const WHEEL_THROTTLE_MS = 8 // ~120fps durante zoom para mejor responsividad
+  const nearestNodeThrottleRef = useRef<number | null>(null)
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -179,6 +181,7 @@ export function useNetworkInteractions({
       e.preventDefault()
 
       const now = Date.now()
+      // Throttle más agresivo para reducir cálculos
       if (now - lastWheelTimeRef.current < WHEEL_THROTTLE_MS) {
         return
       }
@@ -196,6 +199,8 @@ export function useNetworkInteractions({
         cancelAnimationFrame(wheelTimeoutRef.current)
       }
 
+      isZoomingRef.current = true
+
       wheelTimeoutRef.current = requestAnimationFrame(() => {
         const delta = -e.deltaY * 0.002
         const newScale = Math.max(0.5, Math.min(5, scale + delta * scale))
@@ -210,13 +215,22 @@ export function useNetworkInteractions({
           setPanOffset({ x: newPanX, y: newPanY })
         }
 
-        // Solo calcular nearest node si el zoom es alto (más costoso)
-        if (newScale > 1.5) {
-          const nearest = findNearestNode(cursorX, cursorY)
-          setNearestNodeId(nearest)
-        } else {
-          setNearestNodeId(null)
+        // Deshabilitar cálculo de nearest node durante zoom activo para mejor rendimiento
+        // Solo calcular cuando el zoom se estabiliza
+        if (nearestNodeThrottleRef.current) {
+          clearTimeout(nearestNodeThrottleRef.current)
         }
+
+        nearestNodeThrottleRef.current = window.setTimeout(() => {
+          isZoomingRef.current = false
+          // Solo calcular nearest node si el zoom es alto y está estable
+          if (newScale > 1.5) {
+            const nearest = findNearestNode(cursorX, cursorY)
+            setNearestNodeId(nearest)
+          } else {
+            setNearestNodeId(null)
+          }
+        }, 150) // Esperar 150ms después del último zoom
 
         setScale(newScale)
       })
@@ -266,6 +280,9 @@ export function useNetworkInteractions({
       }
       if (findNearestNodeThrottleRef.current) {
         clearTimeout(findNearestNodeThrottleRef.current)
+      }
+      if (nearestNodeThrottleRef.current) {
+        clearTimeout(nearestNodeThrottleRef.current)
       }
     }
   }, [])

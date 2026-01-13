@@ -116,15 +116,20 @@ export function RadialNetwork() {
 
 
   const networkTransformStyle = useMemo(() => {
+    // Durante zoom activo, deshabilitar transiciones para mejor rendimiento
+    const isZoomingActive = Math.abs(scale - 0.6) > 0.1 && !zoomTransition
+    
     return {
       transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${scale})`,
       transformOrigin: "0 0",
-      willChange: isDragging || zoomTransition ? 'transform' : 'auto',
+      willChange: isDragging || zoomTransition || isZoomingActive ? 'transform' : 'auto',
       transition: zoomTransition
         ? "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)"
-        : isDragging
+        : isDragging || isZoomingActive
           ? "none"
           : "transform 0.1s ease-out",
+      // Optimización: usar contain para mejorar el rendering
+      contain: 'layout style paint',
     }
   }, [scale, panOffset, zoomTransition, isDragging])
 

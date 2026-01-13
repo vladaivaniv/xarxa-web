@@ -41,11 +41,11 @@ export function useNetworkInteractions({
   setActiveCategory,
 }: UseNetworkInteractionsProps) {
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
   const [hasMoved, setHasMoved] = useState(false)
   const mouseMoveTimeoutRef = useRef<number | null>(null)
   const wheelTimeoutRef = useRef<number | null>(null)
+  const panStartRef = useRef<{ mouseX: number; mouseY: number; panX: number; panY: number } | null>(null)
   const DRAG_THRESHOLD = 5 // Píxeles mínimos para considerar drag
 
   const scaleNodePosition = useCallback((percentX: number, percentY: number) => {
@@ -182,9 +182,12 @@ export function useNetworkInteractions({
 
   // Calcular límites de pan basados en scale y dimensions
   const getPanLimits = useCallback(() => {
+    // Permitir pan sin límites cuando scale <= 1 (el usuario puede explorar libremente)
+    // Cuando scale > 1, limitar el pan para que no se vea espacio vacío
     if (scale <= 1) {
-      // Cuando scale <= 1, no permitir pan (todo está visible)
-      return { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+      // Límites muy grandes para permitir pan libre
+      const largeLimit = 10000
+      return { minX: -largeLimit, maxX: largeLimit, minY: -largeLimit, maxY: largeLimit }
     }
     // Calcular cuánto espacio extra hay cuando se hace zoom
     const extraWidth = (dimensions.width * (scale - 1)) / 2
@@ -305,9 +308,14 @@ export function useNetworkInteractions({
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (isZooming || zoomTransition) return
-      // Guardar posición inicial del mouse y del panOffset
+      // Guardar posición inicial del mouse y del panOffset actual
       setDragStartPos({ x: e.clientX, y: e.clientY })
-      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y })
+      panStartRef.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        panX: panOffset.x,
+        panY: panOffset.y,
+      }
       setHasMoved(false)
       // No activar isDragging todavía - esperar a que se mueva más del threshold
     },
@@ -342,16 +350,26 @@ export function useNetworkInteractions({
       }
 
       mouseMoveTimeoutRef.current = requestAnimationFrame(() => {
+        if (!panStartRef.current) return
+        
+        // Calcular el desplazamiento del mouse desde el inicio del pan
+        const deltaX = e.clientX - panStartRef.current.mouseX
+        const deltaY = e.clientY - panStartRef.current.mouseY
+        
+        // ctx.translate(panOffset.x, panOffset.y) con panOffset.x positivo mueve el contenido a la derecha
+        // Cuando arrastras a la izquierda (deltaX negativo), quieres ver MÁS contenido a la izquierda
+        // Esto significa que el contenido debe moverse a la izquierda (panOffset.x debe disminuir)
+        // Por lo tanto, usamos el mismo signo: panOffset.x disminuye cuando deltaX es negativo
         const newOffset = {
-          x: e.clientX - dragStart.x,
-          y: e.clientY - dragStart.y,
+          x: panStartRef.current.panX + deltaX,
+          y: panStartRef.current.panY + deltaY,
         }
         // Aplicar límites de pan
         const limitedOffset = applyPanLimits(newOffset)
         setPanOffset(limitedOffset)
       })
     },
-    [isDragging, dragStart, dragStartPos, setPanOffset, applyPanLimits],
+    [isDragging, dragStartPos, setPanOffset, applyPanLimits],
   )
 
   const handleMouseUp = useCallback(() => {
@@ -360,6 +378,7 @@ export function useNetworkInteractions({
     setIsDragging(false)
     setHasMoved(false)
     setDragStartPos({ x: 0, y: 0 })
+    panStartRef.current = null
   }, [])
 
   // Touch event handlers
@@ -370,7 +389,12 @@ export function useNetworkInteractions({
       
       const touch = e.touches[0]
       setDragStartPos({ x: touch.clientX, y: touch.clientY })
-      setDragStart({ x: touch.clientX - panOffset.x, y: touch.clientY - panOffset.y })
+      panStartRef.current = {
+        mouseX: touch.clientX,
+        mouseY: touch.clientY,
+        panX: panOffset.x,
+        panY: panOffset.y,
+      }
       setHasMoved(false)
     },
     [panOffset, isZooming, zoomTransition],
@@ -404,22 +428,29 @@ export function useNetworkInteractions({
       }
 
       mouseMoveTimeoutRef.current = requestAnimationFrame(() => {
+        if (!panStartRef.current) return
+        
+        const deltaX = touch.clientX - panStartRef.current.mouseX
+        const deltaY = touch.clientY - panStartRef.current.mouseY
+        
+        // Mismo signo (igual que en handleMouseMove)
         const newOffset = {
-          x: touch.clientX - dragStart.x,
-          y: touch.clientY - dragStart.y,
+          x: panStartRef.current.panX + deltaX,
+          y: panStartRef.current.panY + deltaY,
         }
         // Aplicar límites de pan
         const limitedOffset = applyPanLimits(newOffset)
         setPanOffset(limitedOffset)
       })
     },
-    [isDragging, dragStart, dragStartPos, setPanOffset, applyPanLimits],
+    [isDragging, dragStartPos, setPanOffset, applyPanLimits],
   )
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false)
     setHasMoved(false)
     setDragStartPos({ x: 0, y: 0 })
+    panStartRef.current = null
   }, [])
 
   // Limpiar timeouts al desmontar

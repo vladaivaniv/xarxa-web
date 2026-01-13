@@ -229,6 +229,9 @@ export function RadialNetwork() {
           nearestNodeId={nearestNodeId}
           onNodeClick={handleNodeClick}
           onNodeHover={setHoveredEventId}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
         />
       </div>
 

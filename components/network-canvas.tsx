@@ -15,6 +15,9 @@ interface NetworkCanvasProps {
   nearestNodeId: number | null
   onNodeClick: (id: number) => void
   onNodeHover: (id: number | null) => void
+  onMouseDown?: (e: React.MouseEvent) => void
+  onMouseMove?: (e: React.MouseEvent) => void
+  onMouseUp?: (e: React.MouseEvent) => void
 }
 
 export const NetworkCanvas = memo(function NetworkCanvas({
@@ -29,6 +32,9 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   nearestNodeId,
   onNodeClick,
   onNodeHover,
+  onMouseDown,
+  onMouseMove,
+  onMouseUp,
 }: NetworkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imagesCache = useRef<Map<number, HTMLImageElement>>(new Map())
@@ -333,6 +339,32 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   const hoverThrottleRef = useRef<number | null>(null)
   
   // Manejar eventos del mouse
+  const handleCanvasMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const rect = canvas.getBoundingClientRect()
+      let x = e.clientX - rect.left
+      let y = e.clientY - rect.top
+      x = (x - panOffset.x) / scale
+      y = (y - panOffset.y) / scale
+
+      const nodeId = getNodeAtPosition(x, y)
+      
+      // Si hay un nodo bajo el cursor, no hacer pan (el click se manejará en handleClick)
+      if (nodeId !== null) {
+        return
+      }
+
+      // Si no hay nodo, permitir pan pasando el evento al contenedor
+      if (onMouseDown) {
+        onMouseDown(e as unknown as React.MouseEvent)
+      }
+    },
+    [getNodeAtPosition, panOffset, scale, onMouseDown],
+  )
+
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current
@@ -370,8 +402,23 @@ export const NetworkCanvas = memo(function NetworkCanvas({
         }
         hoverThrottleRef.current = null
       })
+
+      // También permitir pan si no hay nodo bajo el cursor
+      // onMouseMove del contenedor se llamará para pan cuando sea necesario
+      if (onMouseMove) {
+        onMouseMove(e as unknown as React.MouseEvent)
+      }
     },
-    [getNodeAtPosition, onNodeHover, drawCanvas, dimensions, panOffset, scale],
+    [getNodeAtPosition, onNodeHover, drawCanvas, dimensions, panOffset, scale, onMouseMove],
+  )
+
+  const handleCanvasMouseUp = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (onMouseUp) {
+        onMouseUp(e as unknown as React.MouseEvent)
+      }
+    },
+    [onMouseUp],
   )
 
   const handleClick = useCallback(
@@ -431,7 +478,9 @@ export const NetworkCanvas = memo(function NetworkCanvas({
         imageRendering: 'auto',
         touchAction: 'none',
       }}
+      onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleMouseMove}
+      onMouseUp={handleCanvasMouseUp}
       onClick={handleClick}
       onMouseLeave={handleMouseLeave}
     />

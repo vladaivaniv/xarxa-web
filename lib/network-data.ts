@@ -1,7 +1,8 @@
-// Helper para agregar basePath a las rutas de imágenes
+import { getImagePath as getOptimizedImagePath } from './image-utils'
+
+// Helper para agregar basePath a las rutas de imágenes (usa WebP optimizado)
 const getImagePath = (path: string) => {
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/xarxa-web'
-  return `${basePath}${path}`
+  return getOptimizedImagePath(path)
 }
 
 export const events = [

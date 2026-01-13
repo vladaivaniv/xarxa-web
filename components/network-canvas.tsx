@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useRef, useEffect, useMemo, useCallback } from "react"
-import { events, eventsById } from "@/lib/network-data"
+import { events, eventsById, generateConnectionsByCategory } from "@/lib/network-data"
 
 interface NetworkCanvasProps {
   dimensions: { width: number; height: number }
@@ -39,6 +39,9 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
   // Definir drawCanvas antes de cargar imágenes
   const drawCanvasRef = useRef<(() => void) | null>(null)
+
+  // Generar conexiones por categoría (líneas entre nodos del mismo tipo)
+  const connections = useMemo(() => generateConnectionsByCategory(), [])
 
   // Calcular tamaño del nodo según el viewport (sin afectar por scale)
   // El zoom viene del transform CSS del contenedor padre, no del tamaño del nodo
@@ -95,7 +98,35 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
     const nodeSize = getNodeSize()
 
-    // Dibujar nodos (líneas eliminadas)
+    // Dibujar líneas entre nodos de la misma categoría
+    ctx.strokeStyle = "rgba(128, 128, 128, 0.3)" // Gris con transparencia
+    ctx.lineWidth = 1
+    
+    for (const [fromId, toId] of connections) {
+      const fromEvent = eventsById.get(fromId)
+      const toEvent = eventsById.get(toId)
+      
+      if (!fromEvent || !toEvent || fromEvent.idx >= nodePositions.length || toEvent.idx >= nodePositions.length) {
+        continue
+      }
+      
+      const fromPos = nodePositions[fromEvent.idx]
+      const toPos = nodePositions[toEvent.idx]
+      
+      const fromScaledPos = scaleNodePosition(fromPos.x, fromPos.y)
+      const toScaledPos = scaleNodePosition(toPos.x, toPos.y)
+      
+      const fromPixelPos = getPixelPos(fromScaledPos.x, fromScaledPos.y)
+      const toPixelPos = getPixelPos(toScaledPos.x, toScaledPos.y)
+      
+      // Dibujar línea entre los dos nodos
+      ctx.beginPath()
+      ctx.moveTo(fromPixelPos.x, fromPixelPos.y)
+      ctx.lineTo(toPixelPos.x, toPixelPos.y)
+      ctx.stroke()
+    }
+
+    // Dibujar nodos
     // Las posiciones se calculan usando getPixelPos que ya considera dimensions
     // El transform CSS del contenedor padre manejará el zoom/pan visual
     // IMPORTANTE: Las imágenes siempre se dibujan en las mismas coordenadas relativas
@@ -177,6 +208,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     selectedEventId,
     nearestNodeId,
     devicePixelRatio,
+    connections,
   ])
 
   // Guardar referencia para usar en otros efectos

@@ -160,6 +160,7 @@ export function useNetworkInteractions({
       setZoomTransition(true)
       setSelectedEventId(id)
 
+      // Usar scale para controlar el tamaño de la imagen seleccionada (no del canvas completo)
       setScale(4)
       setPanOffset({ x: targetPanX, y: targetPanY })
 
@@ -172,75 +173,6 @@ export function useNetworkInteractions({
       }, 500)
     },
     [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos],
-  )
-
-  // Throttle para wheel events - más agresivo durante zoom
-  const lastWheelTimeRef = useRef(0)
-  const isZoomingRef = useRef(false)
-  const WHEEL_THROTTLE_MS = 8 // ~120fps durante zoom para mejor responsividad
-  const nearestNodeThrottleRef = useRef<number | null>(null)
-
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      if (isZooming || zoomTransition) return
-      e.preventDefault()
-
-      const now = Date.now()
-      // Throttle más agresivo para reducir cálculos
-      if (now - lastWheelTimeRef.current < WHEEL_THROTTLE_MS) {
-        return
-      }
-      lastWheelTimeRef.current = now
-
-      // Guardar referencias antes del requestAnimationFrame
-      const currentTarget = e.currentTarget as HTMLElement | null
-      if (!currentTarget) return
-
-      const rect = currentTarget.getBoundingClientRect()
-      const cursorX = e.clientX - rect.left
-      const cursorY = e.clientY - rect.top
-
-      if (wheelTimeoutRef.current) {
-        cancelAnimationFrame(wheelTimeoutRef.current)
-      }
-
-      isZoomingRef.current = true
-
-      wheelTimeoutRef.current = requestAnimationFrame(() => {
-        const delta = -e.deltaY * 0.002
-        const newScale = Math.max(0.5, Math.min(5, scale + delta * scale))
-
-        if (newScale !== scale) {
-          const worldX = (cursorX - panOffset.x) / scale
-          const worldY = (cursorY - panOffset.y) / scale
-
-          const newPanX = cursorX - worldX * newScale
-          const newPanY = cursorY - worldY * newScale
-
-          setPanOffset({ x: newPanX, y: newPanY })
-        }
-
-        // Deshabilitar cálculo de nearest node durante zoom activo para mejor rendimiento
-        // Solo calcular cuando el zoom se estabiliza
-        if (nearestNodeThrottleRef.current) {
-          clearTimeout(nearestNodeThrottleRef.current)
-        }
-
-        nearestNodeThrottleRef.current = window.setTimeout(() => {
-          isZoomingRef.current = false
-          // Solo calcular nearest node si el zoom es alto y está estable
-          if (newScale > 1.5) {
-            const nearest = findNearestNode(cursorX, cursorY)
-            setNearestNodeId(nearest)
-          } else {
-            setNearestNodeId(null)
-          }
-        }, 150) // Esperar 150ms después del último zoom
-
-        setScale(newScale)
-      })
-    },
-    [scale, isZooming, zoomTransition, findNearestNode, panOffset, setScale, setPanOffset, setNearestNodeId],
   )
 
   // Calcular límites de pan basados en scale y dimensions
@@ -270,6 +202,99 @@ export function useNetworkInteractions({
       }
     },
     [getPanLimits],
+  )
+
+  // Throttle para wheel events - más agresivo durante zoom
+  const lastWheelTimeRef = useRef(0)
+  const isZoomingRef = useRef(false)
+  const WHEEL_THROTTLE_MS = 8 // ~120fps durante zoom para mejor responsividad
+  const nearestNodeThrottleRef = useRef<number | null>(null)
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (isZooming || zoomTransition) return
+      e.preventDefault()
+
+      const now = Date.now()
+      // Throttle más agresivo para reducir cálculos
+      if (now - lastWheelTimeRef.current < WHEEL_THROTTLE_MS) {
+        return
+      }
+      lastWheelTimeRef.current = now
+
+      // Guardar referencias antes del requestAnimationFrame
+      const currentTarget = e.currentTarget as HTMLElement | null
+      if (!currentTarget) return
+
+      const rect = currentTarget.getBoundingClientRect()
+      // Obtener posición del cursor relativa al contenedor
+      const cursorX = e.clientX - rect.left
+      const cursorY = e.clientY - rect.top
+
+      if (wheelTimeoutRef.current) {
+        cancelAnimationFrame(wheelTimeoutRef.current)
+      }
+
+      isZoomingRef.current = true
+
+      wheelTimeoutRef.current = requestAnimationFrame(() => {
+        const delta = -e.deltaY * 0.002
+        const newScale = Math.max(0.5, Math.min(5, scale + delta * scale))
+
+        if (Math.abs(newScale - scale) > 0.001) {
+          // Calcular la posición del cursor en el espacio del "mundo" (coordenadas sin transform)
+          // El mundo es el espacio de coordenadas del canvas antes de aplicar scale y translate
+          // Esto representa la posición real del contenido que está bajo el cursor
+          const worldX = (cursorX - panOffset.x) / scale
+          const worldY = (cursorY - panOffset.y) / scale
+
+          // Calcular nuevo panOffset para mantener el mismo punto del mundo bajo el cursor
+          // Después del zoom, queremos que el mismo punto del mundo permanezca en la misma posición visual
+          // Formula: newPan = cursor - world * newScale
+          const newPanX = cursorX - worldX * newScale
+          const newPanY = cursorY - worldY * newScale
+
+          // Aplicar límites usando el nuevo scale para calcular límites correctos
+          // Necesitamos calcular límites temporalmente con el newScale
+          const tempExtraWidth = (dimensions.width * (newScale - 1)) / 2
+          const tempExtraHeight = (dimensions.height * (newScale - 1)) / 2
+          const tempLimits = newScale <= 1 
+            ? { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+            : {
+                minX: -tempExtraWidth,
+                maxX: tempExtraWidth,
+                minY: -tempExtraHeight,
+                maxY: tempExtraHeight,
+              }
+          
+          const limitedOffset = {
+            x: Math.max(tempLimits.minX, Math.min(tempLimits.maxX, newPanX)),
+            y: Math.max(tempLimits.minY, Math.min(tempLimits.maxY, newPanY)),
+          }
+          
+          setPanOffset(limitedOffset)
+          setScale(newScale)
+        }
+
+        // Deshabilitar cálculo de nearest node durante zoom activo para mejor rendimiento
+        // Solo calcular cuando el zoom se estabiliza
+        if (nearestNodeThrottleRef.current) {
+          clearTimeout(nearestNodeThrottleRef.current)
+        }
+
+        nearestNodeThrottleRef.current = window.setTimeout(() => {
+          isZoomingRef.current = false
+          // Solo calcular nearest node si el zoom es alto y está estable
+          if (newScale > 1.5) {
+            const nearest = findNearestNode(cursorX, cursorY)
+            setNearestNodeId(nearest)
+          } else {
+            setNearestNodeId(null)
+          }
+        }, 150) // Esperar 150ms después del último zoom
+      })
+    },
+    [scale, isZooming, zoomTransition, findNearestNode, panOffset, setScale, setPanOffset, setNearestNodeId, applyPanLimits, dimensions],
   )
 
   const handleMouseDown = useCallback(

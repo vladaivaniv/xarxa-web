@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { TopNav } from "./top-nav"
 import { CategoryFilters } from "./category-filters"
-import { NetworkConnections } from "./network-connections"
-import { NetworkNodes } from "./network-nodes"
+import { NetworkCanvas } from "./network-canvas"
 import { useNetworkInteractions } from "@/hooks/use-network-interactions"
 import { events, initialNodePositions, eventsById } from "@/lib/network-data"
 
@@ -75,6 +74,8 @@ export function RadialNetwork() {
   }, [nodePositions])
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null
+    
     const updateDimensions = () => {
       // Usar viewport directamente para asegurar dimensiones correctas
       setDimensions({
@@ -82,9 +83,26 @@ export function RadialNetwork() {
         height: window.innerHeight,
       })
     }
+    
+    // Throttle resize para mejor rendimiento
+    const handleResize = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      timeoutId = setTimeout(() => {
+        updateDimensions()
+        timeoutId = null
+      }, 100)
+    }
+    
     updateDimensions()
-    window.addEventListener("resize", updateDimensions)
-    return () => window.removeEventListener("resize", updateDimensions)
+    window.addEventListener("resize", handleResize, { passive: true })
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
   }, [])
 
   const {
@@ -130,9 +148,9 @@ export function RadialNetwork() {
         ? "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)"
         : isDragging || isZoomingActive
           ? "none"
-          : "transform 0.1s ease-out",
+          : "transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
       // Optimización: usar contain para mejorar el rendering
-      contain: 'layout style paint',
+      contain: 'layout style paint' as const,
     }
   }, [scale, panOffset, zoomTransition, isDragging])
 
@@ -147,6 +165,14 @@ export function RadialNetwork() {
     <div
       ref={containerRef}
       className={`relative overflow-hidden ${cursorClass}`}
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         position: 'fixed',
         top: 0,
@@ -157,24 +183,18 @@ export function RadialNetwork() {
         maxWidth: '100vw',
         userSelect: isDragging ? 'none' : 'auto',
         WebkitUserSelect: isDragging ? 'none' : 'auto',
+        WebkitTouchCallout: 'none',
+        touchAction: 'pan-x pan-y pinch-zoom',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
       }}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
       <TopNav />
       <CategoryFilters activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
 
       <div className="absolute inset-0" style={networkTransformStyle}>
-        <NetworkConnections
+        <NetworkCanvas
           dimensions={dimensions}
           nodePositions={nodePositions}
           activeCategory={activeCategory}
@@ -182,13 +202,7 @@ export function RadialNetwork() {
           scaleNodePosition={scaleNodePosition}
           getPixelPos={getPixelPos}
           scale={scale}
-        />
-
-        <NetworkNodes
-          nodePositions={nodePositions}
-          scaleNodePosition={scaleNodePosition}
           nearestNodeId={nearestNodeId}
-          scale={scale}
           onNodeClick={handleNodeClick}
           onNodeHover={setHoveredEventId}
         />

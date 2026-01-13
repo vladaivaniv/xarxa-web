@@ -136,6 +136,28 @@ export function RadialNetwork() {
     setActiveCategory,
   })
 
+  // Handler para cambio de categoría que deselecciona el nodo y restaura el zoom
+  const handleCategoryChange = useCallback((category: string | null) => {
+    // Si hay un nodo seleccionado, deseleccionarlo y restaurar el zoom
+    if (selectedEventId !== null) {
+      setIsZooming(true)
+      setZoomTransition(true)
+      setScale(1.0)
+      setPanOffset({ x: 0, y: 0 })
+      setSelectedEventId(null)
+      setNearestNodeId(null)
+
+      setTimeout(() => {
+        setIsZooming(false)
+        setZoomTransition(false)
+        setZoomingFromId(null)
+        setZoomingFromPos(null)
+      }, 500)
+    }
+    
+    // Establecer la nueva categoría
+    setActiveCategory(category)
+  }, [selectedEventId, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos, setActiveCategory])
 
   const networkTransformStyle = useMemo(() => {
     // Durante zoom activo, deshabilitar transiciones para mejor rendimiento
@@ -192,7 +214,7 @@ export function RadialNetwork() {
       }}
     >
       <TopNav />
-      <CategoryFilters activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+      <CategoryFilters activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
 
       <div className="absolute inset-0">
         <NetworkCanvas

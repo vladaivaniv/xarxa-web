@@ -15,6 +15,7 @@ interface UseNetworkInteractionsProps {
   selectedEventId: number | null
   setSelectedEventId: (id: number | null) => void
   setNearestNodeId: (id: number | null) => void
+  zoomTransition: boolean
   setZoomTransition: (transition: boolean) => void
   setZoomingFromId: (id: number | null) => void
   setZoomingFromPos: (pos: { x: number; y: number } | null) => void
@@ -32,14 +33,18 @@ export function useNetworkInteractions({
   selectedEventId,
   setSelectedEventId,
   setNearestNodeId,
+  zoomTransition,
   setZoomTransition,
   setZoomingFromId,
   setZoomingFromPos,
 }: UseNetworkInteractionsProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
+  const [hasMoved, setHasMoved] = useState(false)
   const mouseMoveTimeoutRef = useRef<number | null>(null)
   const wheelTimeoutRef = useRef<number | null>(null)
+  const DRAG_THRESHOLD = 5 // Píxeles mínimos para considerar drag
 
   const scaleNodePosition = useCallback((percentX: number, percentY: number) => {
     const centerX = 50
@@ -121,10 +126,10 @@ export function useNetworkInteractions({
 
   const handleNodeClick = useCallback(
     (id: number) => {
-      if (scale > 0.6 && selectedEventId === id) {
+      if (scale > 1.0 && selectedEventId === id) {
         setIsZooming(true)
         setZoomTransition(true)
-        setScale(0.6)
+        setScale(1.0)
         setPanOffset({ x: 0, y: 0 })
         setSelectedEventId(null)
         setNearestNodeId(null)
@@ -177,7 +182,7 @@ export function useNetworkInteractions({
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
-      if (isZooming) return
+      if (isZooming || zoomTransition) return
       e.preventDefault()
 
       const now = Date.now()
@@ -235,20 +240,133 @@ export function useNetworkInteractions({
         setScale(newScale)
       })
     },
-    [scale, isZooming, findNearestNode, panOffset, setScale, setPanOffset, setNearestNodeId],
+    [scale, isZooming, zoomTransition, findNearestNode, panOffset, setScale, setPanOffset, setNearestNodeId],
+  )
+
+  // Calcular límites de pan basados en scale y dimensions
+  const getPanLimits = useCallback(() => {
+    if (scale <= 1) {
+      // Cuando scale <= 1, no permitir pan (todo está visible)
+      return { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+    }
+    // Calcular cuánto espacio extra hay cuando se hace zoom
+    const extraWidth = (dimensions.width * (scale - 1)) / 2
+    const extraHeight = (dimensions.height * (scale - 1)) / 2
+    return {
+      minX: -extraWidth,
+      maxX: extraWidth,
+      minY: -extraHeight,
+      maxY: extraHeight,
+    }
+  }, [dimensions, scale])
+
+  // Aplicar límites a panOffset
+  const applyPanLimits = useCallback(
+    (newOffset: { x: number; y: number }) => {
+      const limits = getPanLimits()
+      return {
+        x: Math.max(limits.minX, Math.min(limits.maxX, newOffset.x)),
+        y: Math.max(limits.minY, Math.min(limits.maxY, newOffset.y)),
+      }
+    },
+    [getPanLimits],
   )
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (isZooming) return
-      setIsDragging(true)
+      if (isZooming || zoomTransition) return
+      // Guardar posición inicial del mouse y del panOffset
+      setDragStartPos({ x: e.clientX, y: e.clientY })
       setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y })
+      setHasMoved(false)
+      // No activar isDragging todavía - esperar a que se mueva más del threshold
     },
-    [panOffset, isZooming],
+    [panOffset, isZooming, zoomTransition],
   )
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      // Si no hay drag iniciado, verificar si debemos iniciarlo
+      if (!isDragging && dragStartPos.x !== 0 && dragStartPos.y !== 0) {
+        const dx = Math.abs(e.clientX - dragStartPos.x)
+        const dy = Math.abs(e.clientY - dragStartPos.y)
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        // Si el movimiento supera el threshold, activar drag
+        if (distance > DRAG_THRESHOLD) {
+          setIsDragging(true)
+          setHasMoved(true)
+          // Prevenir selección de texto
+          e.preventDefault()
+        }
+        return
+      }
+
+      if (!isDragging) return
+
+      // Prevenir selección de texto durante drag
+      e.preventDefault()
+
+      if (mouseMoveTimeoutRef.current) {
+        cancelAnimationFrame(mouseMoveTimeoutRef.current)
+      }
+
+      mouseMoveTimeoutRef.current = requestAnimationFrame(() => {
+        const newOffset = {
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y,
+        }
+        // Aplicar límites de pan
+        const limitedOffset = applyPanLimits(newOffset)
+        setPanOffset(limitedOffset)
+      })
+    },
+    [isDragging, dragStart, dragStartPos, setPanOffset, applyPanLimits],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    // Si no hubo movimiento significativo, permitir click normal
+    // El click se manejará por el componente hijo si es necesario
+    setIsDragging(false)
+    setHasMoved(false)
+    setDragStartPos({ x: 0, y: 0 })
+  }, [])
+
+  // Touch event handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (isZooming || zoomTransition) return
+      if (e.touches.length !== 1) return // Solo manejar un dedo
+      
+      const touch = e.touches[0]
+      setDragStartPos({ x: touch.clientX, y: touch.clientY })
+      setDragStart({ x: touch.clientX - panOffset.x, y: touch.clientY - panOffset.y })
+      setHasMoved(false)
+    },
+    [panOffset, isZooming, zoomTransition],
+  )
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length !== 1) return
+      e.preventDefault() // Prevenir scroll
+
+      const touch = e.touches[0]
+
+      // Si no hay drag iniciado, verificar si debemos iniciarlo
+      if (!isDragging && dragStartPos.x !== 0 && dragStartPos.y !== 0) {
+        const dx = Math.abs(touch.clientX - dragStartPos.x)
+        const dy = Math.abs(touch.clientY - dragStartPos.y)
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        // Si el movimiento supera el threshold, activar drag
+        if (distance > DRAG_THRESHOLD) {
+          setIsDragging(true)
+          setHasMoved(true)
+        }
+        return
+      }
+
       if (!isDragging) return
 
       if (mouseMoveTimeoutRef.current) {
@@ -256,17 +374,22 @@ export function useNetworkInteractions({
       }
 
       mouseMoveTimeoutRef.current = requestAnimationFrame(() => {
-        setPanOffset({
-          x: e.clientX - dragStart.x,
-          y: e.clientY - dragStart.y,
-        })
+        const newOffset = {
+          x: touch.clientX - dragStart.x,
+          y: touch.clientY - dragStart.y,
+        }
+        // Aplicar límites de pan
+        const limitedOffset = applyPanLimits(newOffset)
+        setPanOffset(limitedOffset)
       })
     },
-    [isDragging, dragStart, setPanOffset],
+    [isDragging, dragStart, dragStartPos, setPanOffset, applyPanLimits],
   )
 
-  const handleMouseUp = useCallback(() => {
+  const handleTouchEnd = useCallback(() => {
     setIsDragging(false)
+    setHasMoved(false)
+    setDragStartPos({ x: 0, y: 0 })
   }, [])
 
   // Limpiar timeouts al desmontar
@@ -295,6 +418,9 @@ export function useNetworkInteractions({
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     isDragging,
     findNearestNode,
   }

@@ -31,7 +31,7 @@ export function RadialNetwork() {
   const [zoomingFromPos, setZoomingFromPos] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
-  const [scale, setScale] = useState(0.6)
+  const [scale, setScale] = useState(1.0)
   const [nearestNodeId, setNearestNodeId] = useState<number | null>(null)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   const [zoomTransition, setZoomTransition] = useState(false)
@@ -76,12 +76,11 @@ export function RadialNetwork() {
 
   useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight,
-        })
-      }
+      // Usar viewport directamente para asegurar dimensiones correctas
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
     }
     updateDimensions()
     window.addEventListener("resize", updateDimensions)
@@ -96,6 +95,9 @@ export function RadialNetwork() {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     isDragging,
   } = useNetworkInteractions({
     dimensions,
@@ -109,6 +111,7 @@ export function RadialNetwork() {
     selectedEventId,
     setSelectedEventId,
     setNearestNodeId,
+    zoomTransition,
     setZoomTransition,
     setZoomingFromId,
     setZoomingFromPos,
@@ -117,10 +120,11 @@ export function RadialNetwork() {
 
   const networkTransformStyle = useMemo(() => {
     // Durante zoom activo, deshabilitar transiciones para mejor rendimiento
-    const isZoomingActive = Math.abs(scale - 0.6) > 0.1 && !zoomTransition
+    const isZoomingActive = Math.abs(scale - 1.0) > 0.1 && !zoomTransition
     
     return {
       transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${scale})`,
+      transformOrigin: "0 0",
       willChange: isDragging || zoomTransition || isZoomingActive ? 'transform' : 'auto',
       transition: zoomTransition
         ? "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)"
@@ -132,15 +136,39 @@ export function RadialNetwork() {
     }
   }, [scale, panOffset, zoomTransition, isDragging])
 
+  // Determinar clase de cursor basada en el estado
+  const cursorClass = useMemo(() => {
+    if (isZooming || zoomTransition) return "cursor-not-allowed"
+    if (isDragging) return "cursor-grabbing"
+    return "cursor-grab"
+  }, [isDragging, isZooming, zoomTransition])
+
   return (
     <div
       ref={containerRef}
-      className={`relative h-full w-full overflow-hidden ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`relative overflow-hidden ${cursorClass}`}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        height: '100vh',
+        width: '100vw',
+        maxHeight: '100vh',
+        maxWidth: '100vw',
+        userSelect: isDragging ? 'none' : 'auto',
+        WebkitUserSelect: isDragging ? 'none' : 'auto',
+        margin: 0,
+        padding: 0,
+        boxSizing: 'border-box',
+      }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <TopNav />
       <CategoryFilters activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
@@ -166,7 +194,7 @@ export function RadialNetwork() {
         />
       </div>
 
-      {!isZooming && scale > 0.6 && (
+      {!isZooming && scale > 1.0 && (
         <div className="absolute bottom-4 left-4 text-white/50 text-sm font-mono" style={{ zIndex: 100 }}>
           {Math.round(scale * 100)}%
         </div>

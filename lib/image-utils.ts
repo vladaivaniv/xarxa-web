@@ -4,16 +4,6 @@
  */
 
 export function getOptimizedImagePath(path: string): string {
-  // Si ya es WebP, devolverlo tal cual
-  if (path.endsWith('.webp')) {
-    return path
-  }
-  
-  // Si es PNG, intentar usar WebP
-  if (path.endsWith('.png')) {
-    return path.replace(/\.png$/i, '.webp')
-  }
-  
   return path
 }
 

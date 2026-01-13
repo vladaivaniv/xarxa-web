@@ -33,7 +33,6 @@ export const events = [
   { id: 23, title: "23", category: "ia", image: getImagePath("/IA/25.webp") },
   { id: 24, title: "24", category: "ia", image: getImagePath("/IA/26.webp") },
   { id: 25, title: "25", category: "ia", image: getImagePath("/IA/ia.webp") },
-  { id: 26, title: "26", category: "ia", image: getImagePath("/IA/ia (2).webp") },
   // PODER (27-36)
   { id: 27, title: "27", category: "poder", image: getImagePath("/PODER/27.webp") },
   { id: 28, title: "28", category: "poder", image: getImagePath("/PODER/28.webp") },

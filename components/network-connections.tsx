@@ -23,6 +23,7 @@ export const NetworkConnections = memo(function NetworkConnections({
   getPixelPos,
   scale,
 }: NetworkConnectionsProps) {
+  // Todos los hooks deben llamarse antes de cualquier return condicional
   const redConnections = useMemo(() => generateConnectionsByCategory(), [])
 
   const shouldLineBeRed = useCallback(
@@ -42,14 +43,6 @@ export const NetworkConnections = memo(function NetworkConnections({
     },
     [activeCategory, selectedEventId],
   )
-
-  if (dimensions.width === 0) return null
-
-  // El SVG debe cubrir todo el espacio, no solo el viewport visible
-  // Usar un viewBox que cubra todo el rango posible de posiciones
-  // Considerando que los nodos pueden estar entre 0-100% en ambas dimensiones
-  const svgWidth = dimensions.width
-  const svgHeight = dimensions.height
 
   // Optimizar renderizado de conexiones durante zoom
   const visibleConnections = useMemo(() => {
@@ -99,6 +92,15 @@ export const NetworkConnections = memo(function NetworkConnections({
     // Zoom alto - mostrar todas las conexiones (pero solo cuando está estable)
     return redConnections
   }, [redConnections, activeCategory, selectedEventId, scale])
+
+  // Early return después de todos los hooks
+  if (dimensions.width === 0) return null
+
+  // El SVG debe cubrir todo el espacio, no solo el viewport visible
+  // Usar un viewBox que cubra todo el rango posible de posiciones
+  // Considerando que los nodos pueden estar entre 0-100% en ambas dimensiones
+  const svgWidth = dimensions.width
+  const svgHeight = dimensions.height
 
   return (
     <svg 

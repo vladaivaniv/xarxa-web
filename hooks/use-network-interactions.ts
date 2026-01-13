@@ -238,7 +238,7 @@ export function useNetworkInteractions({
       isZoomingRef.current = true
 
       wheelTimeoutRef.current = requestAnimationFrame(() => {
-        const delta = -e.deltaY * 0.00005 // Reducido a 0.0005 para zoom aún más suave y lento
+        const delta = -e.deltaY * 0.001 // Reducido de 0.002 a 0.001 para zoom más suave y lento
         const newScale = Math.max(0.5, Math.min(5, scale + delta * scale))
 
         if (Math.abs(newScale - scale) > 0.001) {

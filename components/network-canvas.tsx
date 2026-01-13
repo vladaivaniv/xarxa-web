@@ -106,17 +106,29 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     ctx.scale(scale, scale)
 
     const nodeSize = getNodeSize()
+    const currentHovered = hoveredNodeRef.current
 
     // Dibujar líneas entre nodos de la misma categoría
-    ctx.strokeStyle = "rgba(128, 128, 128, 0.3)" // Gris con transparencia
-    ctx.lineWidth = 1
-    
     for (const [fromId, toId] of connections) {
       const fromEvent = eventsById.get(fromId)
       const toEvent = eventsById.get(toId)
       
       if (!fromEvent || !toEvent || fromEvent.idx >= nodePositions.length || toEvent.idx >= nodePositions.length) {
         continue
+      }
+      
+      // Determinar si esta línea está conectada al nodo seleccionado o en hover
+      const isConnectedToSelected = selectedEventId !== null && (fromId === selectedEventId || toId === selectedEventId)
+      const isConnectedToHovered = currentHovered !== null && (fromId === currentHovered || toId === currentHovered)
+      const isHighlighted = isConnectedToSelected || isConnectedToHovered
+      
+      // Establecer color y ancho según si está conectada al nodo seleccionado o en hover
+      if (isHighlighted) {
+        ctx.strokeStyle = "rgba(255, 0, 0, 0.6)" // Rojo con más opacidad para líneas seleccionadas/hovered
+        ctx.lineWidth = 2
+      } else {
+        ctx.strokeStyle = "rgba(128, 128, 128, 0.3)" // Gris con transparencia
+        ctx.lineWidth = 1
       }
       
       const fromPos = nodePositions[fromEvent.idx]
@@ -140,7 +152,6 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     // El transform CSS del contenedor padre manejará el zoom/pan visual
     // IMPORTANTE: Las imágenes siempre se dibujan en las mismas coordenadas relativas
     // El transform CSS del padre (scale/translate) se encarga del zoom visual
-    const currentHovered = hoveredNodeRef.current
     for (const event of events) {
       const eventData = eventsById.get(event.id)
       if (!eventData || eventData.idx >= nodePositions.length) continue

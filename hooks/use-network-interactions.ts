@@ -19,6 +19,7 @@ interface UseNetworkInteractionsProps {
   setZoomTransition: (transition: boolean) => void
   setZoomingFromId: (id: number | null) => void
   setZoomingFromPos: (pos: { x: number; y: number } | null) => void
+  setActiveCategory: (category: string | null) => void
 }
 
 export function useNetworkInteractions({
@@ -37,6 +38,7 @@ export function useNetworkInteractions({
   setZoomTransition,
   setZoomingFromId,
   setZoomingFromPos,
+  setActiveCategory,
 }: UseNetworkInteractionsProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -126,6 +128,9 @@ export function useNetworkInteractions({
 
   const handleNodeClick = useCallback(
     (id: number) => {
+      // Desactivar el filtro de categoría cuando se hace clic en un nodo
+      setActiveCategory(null)
+
       if (scale > 1.0 && selectedEventId === id) {
         setIsZooming(true)
         setZoomTransition(true)
@@ -172,7 +177,7 @@ export function useNetworkInteractions({
         setNearestNodeId(null)
       }, 500)
     },
-    [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos],
+    [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos, setActiveCategory],
   )
 
   // Calcular límites de pan basados en scale y dimensions

@@ -133,6 +133,7 @@ export function RadialNetwork() {
     setZoomTransition,
     setZoomingFromId,
     setZoomingFromPos,
+    setActiveCategory,
   })
 
 

@@ -120,7 +120,10 @@ export const NetworkCanvas = memo(function NetworkCanvas({
       // Determinar si esta línea está conectada al nodo seleccionado o en hover
       const isConnectedToSelected = selectedEventId !== null && (fromId === selectedEventId || toId === selectedEventId)
       const isConnectedToHovered = currentHovered !== null && (fromId === currentHovered || toId === currentHovered)
-      const isHighlighted = isConnectedToSelected || isConnectedToHovered
+      // Determinar si esta línea está conectada a un nodo de la categoría activa
+      const isConnectedToActiveCategory = activeCategory !== null && 
+        (fromEvent.event.category === activeCategory || toEvent.event.category === activeCategory)
+      const isHighlighted = isConnectedToSelected || isConnectedToHovered || isConnectedToActiveCategory
       
       // Establecer color y ancho según si está conectada al nodo seleccionado o en hover
       if (isHighlighted) {
@@ -230,6 +233,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     scale,
     panOffset,
     selectedEventId,
+    activeCategory,
     nearestNodeId,
     devicePixelRatio,
     connections,

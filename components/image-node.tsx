@@ -51,7 +51,9 @@ export function ImageNode({ event, position, onClick, isFaded }: ImageNodeProps)
           src={event.image || "/placeholder.svg"}
           alt={event.title}
           fill
+          sizes="(max-width: 768px) 140px, 140px"
           className="object-cover transition-transform duration-500 group-hover:scale-110"
+          loading="lazy"
         />
 
         {/* Subtle glow on hover */}

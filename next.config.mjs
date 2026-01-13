@@ -22,6 +22,8 @@ const nextConfig = {
   swcMinify: true,
   // Configuración para exportación estática (GitHub Pages)
   output: 'export',
+  basePath: '/xarxa-web',
+  assetPrefix: '/xarxa-web',
 }
 
 export default nextConfig

@@ -44,7 +44,7 @@ export const ImageNode = memo(function ImageNode({ event, position, onClick, isF
     >
       <div
         className={cn(
-          "relative w-full h-full overflow-hidden transition-all duration-500",
+          "relative w-full h-full  transition-all duration-500",
           isFaded ? "opacity-50" : "opacity-100",
           "group-hover:opacity-100 group-hover:scale-105",
         )}

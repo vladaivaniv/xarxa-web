@@ -45,7 +45,7 @@ export const CenterImage = memo(function CenterImage({ event, position }: Center
       </div>
 
       {/* Main Image */}
-      <div className="relative w-64 h-80 md:w-72 md:h-96 overflow-hidden">
+      <div className="relative w-64 h-80 md:w-72 md:h-96 ">
         <Image src={event.image || "/placeholder.svg"} alt={event.title} fill className="object-cover" priority />
       </div>
     </div>

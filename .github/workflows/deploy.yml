@@ -36,6 +36,18 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Check build output structure
+        run: |
+          echo "Checking out directory structure..."
+          ls -la out/ || echo "out/ not found"
+          if [ -d "out/xarxa-web" ]; then
+            echo "Moving files from out/xarxa-web to out/"
+            mv out/xarxa-web/* out/ 2>/dev/null || true
+            mv out/xarxa-web/.* out/ 2>/dev/null || true
+            rmdir out/xarxa-web 2>/dev/null || true
+          fi
+          echo "Final structure:"
+          ls -la out/ | head -20
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact

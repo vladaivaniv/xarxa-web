@@ -24,6 +24,7 @@ const nextConfig = {
   output: 'export',
   basePath: '/xarxa-web',
   assetPrefix: '/xarxa-web',
+  trailingSlash: true,
 }
 
 export default nextConfig

@@ -36,6 +36,8 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+        env:
+          NEXT_PUBLIC_BASE_PATH: '/xarxa-web'
       - name: Check build output structure
         run: |
           echo "Checking out directory structure..."

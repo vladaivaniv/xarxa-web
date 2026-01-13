@@ -117,8 +117,9 @@ export function RadialNetwork() {
 
   const networkTransformStyle = useMemo(() => {
     return {
-      transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scale})`,
+      transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${scale})`,
       transformOrigin: "0 0",
+      willChange: isDragging || zoomTransition ? 'transform' : 'auto',
       transition: zoomTransition
         ? "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)"
         : isDragging
@@ -148,6 +149,7 @@ export function RadialNetwork() {
           selectedEventId={selectedEventId}
           scaleNodePosition={scaleNodePosition}
           getPixelPos={getPixelPos}
+          scale={scale}
         />
 
         <NetworkNodes

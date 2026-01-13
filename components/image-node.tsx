@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -17,7 +18,7 @@ interface ImageNodeProps {
   isFaded: boolean
 }
 
-export function ImageNode({ event, position, onClick, isFaded }: ImageNodeProps) {
+export const ImageNode = memo(function ImageNode({ event, position, onClick, isFaded }: ImageNodeProps) {
   // Calculate size based on scale
   const baseWidth = 140
   const baseHeight = 180
@@ -34,9 +35,10 @@ export function ImageNode({ event, position, onClick, isFaded }: ImageNodeProps)
       style={{
         left: `${position.x}%`,
         top: `${position.y}%`,
-        transform: "translate(-50%, -50%)",
+        transform: "translate3d(-50%, -50%, 0)",
         width: `${width}px`,
         height: `${height}px`,
+        willChange: 'transform',
       }}
       aria-label={`Select ${event.title}`}
     >
@@ -61,4 +63,4 @@ export function ImageNode({ event, position, onClick, isFaded }: ImageNodeProps)
       </div>
     </button>
   )
-}
+})

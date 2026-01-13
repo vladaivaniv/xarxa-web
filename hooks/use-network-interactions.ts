@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react"
+import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import type React from "react"
 import { events, eventsById } from "@/lib/network-data"
 import { nodeSpreadFactor } from "@/lib/theme-colors"
@@ -49,9 +49,31 @@ export function useNetworkInteractions({
     return { x: scaledX, y: scaledY }
   }, [])
 
+  // Throttle para findNearestNode - solo calcular cada 50ms
+  const findNearestNodeThrottleRef = useRef<number | null>(null)
+  const lastNearestNodeRef = useRef<{ x: number; y: number; result: number | null } | null>(null)
+
   const findNearestNode = useCallback(
     (cursorX: number, cursorY: number) => {
       if (dimensions.width === 0) return null
+      
+      // Si el cursor no se ha movido mucho, devolver el resultado anterior
+      if (lastNearestNodeRef.current) {
+        const dx = Math.abs(cursorX - lastNearestNodeRef.current.x)
+        const dy = Math.abs(cursorY - lastNearestNodeRef.current.y)
+        if (dx < 5 && dy < 5) {
+          return lastNearestNodeRef.current.result
+        }
+      }
+
+      // Throttle: solo calcular cada 50ms
+      if (findNearestNodeThrottleRef.current !== null) {
+        return lastNearestNodeRef.current?.result || null
+      }
+
+      findNearestNodeThrottleRef.current = window.setTimeout(() => {
+        findNearestNodeThrottleRef.current = null
+      }, 50)
 
       const adjustedX = (cursorX - panOffset.x) / scale
       const adjustedY = (cursorY - panOffset.y) / scale
@@ -61,6 +83,7 @@ export function useNetworkInteractions({
 
       let nearestId: number | null = null
       let minDist = Number.POSITIVE_INFINITY
+      const searchRadius = 10 // Solo buscar nodos dentro de 10% de distancia
 
       events.forEach((event) => {
         const eventData = eventsById.get(event.id)
@@ -68,7 +91,13 @@ export function useNetworkInteractions({
 
         const pos = nodePositions[eventData.idx]
         const scaledPos = scaleNodePosition(pos.x, pos.y)
-        const dist = Math.sqrt(Math.pow(scaledPos.x - cursorPercentX, 2) + Math.pow(scaledPos.y - cursorPercentY, 2))
+        const dx = scaledPos.x - cursorPercentX
+        const dy = scaledPos.y - cursorPercentY
+        
+        // Early exit si está fuera del radio de búsqueda
+        if (Math.abs(dx) > searchRadius || Math.abs(dy) > searchRadius) return
+        
+        const dist = Math.sqrt(dx * dx + dy * dy)
 
         if (dist < minDist) {
           minDist = dist
@@ -76,6 +105,7 @@ export function useNetworkInteractions({
         }
       })
 
+      lastNearestNodeRef.current = { x: cursorX, y: cursorY, result: nearestId }
       return nearestId
     },
     [dimensions, scale, panOffset, scaleNodePosition, nodePositions],
@@ -139,10 +169,20 @@ export function useNetworkInteractions({
     [dimensions, scale, selectedEventId, scaleNodePosition, nodePositions, setIsZooming, setZoomTransition, setScale, setPanOffset, setSelectedEventId, setNearestNodeId, setZoomingFromId, setZoomingFromPos],
   )
 
+  // Throttle para wheel events - máximo 60fps
+  const lastWheelTimeRef = useRef(0)
+  const WHEEL_THROTTLE_MS = 16 // ~60fps
+
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (isZooming) return
       e.preventDefault()
+
+      const now = Date.now()
+      if (now - lastWheelTimeRef.current < WHEEL_THROTTLE_MS) {
+        return
+      }
+      lastWheelTimeRef.current = now
 
       // Guardar referencias antes del requestAnimationFrame
       const currentTarget = e.currentTarget as HTMLElement | null
@@ -170,6 +210,7 @@ export function useNetworkInteractions({
           setPanOffset({ x: newPanX, y: newPanY })
         }
 
+        // Solo calcular nearest node si el zoom es alto (más costoso)
         if (newScale > 1.5) {
           const nearest = findNearestNode(cursorX, cursorY)
           setNearestNodeId(nearest)
@@ -212,6 +253,21 @@ export function useNetworkInteractions({
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
+  }, [])
+
+  // Limpiar timeouts al desmontar
+  useEffect(() => {
+    return () => {
+      if (mouseMoveTimeoutRef.current) {
+        cancelAnimationFrame(mouseMoveTimeoutRef.current)
+      }
+      if (wheelTimeoutRef.current) {
+        cancelAnimationFrame(wheelTimeoutRef.current)
+      }
+      if (findNearestNodeThrottleRef.current) {
+        clearTimeout(findNearestNodeThrottleRef.current)
+      }
+    }
   }, [])
 
   return {

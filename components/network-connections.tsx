@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useCallback } from "react"
+import { memo, useMemo, useCallback } from "react"
 import { eventsById, generateConnectionsByCategory } from "@/lib/network-data"
 import { getThemeColor } from "@/lib/theme-colors"
 
@@ -11,15 +11,17 @@ interface NetworkConnectionsProps {
   selectedEventId: number | null
   scaleNodePosition: (percentX: number, percentY: number) => { x: number; y: number }
   getPixelPos: (percentX: number, percentY: number) => { x: number; y: number }
+  scale: number
 }
 
-export function NetworkConnections({
+export const NetworkConnections = memo(function NetworkConnections({
   dimensions,
   nodePositions,
   activeCategory,
   selectedEventId,
   scaleNodePosition,
   getPixelPos,
+  scale,
 }: NetworkConnectionsProps) {
   const redConnections = useMemo(() => generateConnectionsByCategory(), [])
 
@@ -49,12 +51,41 @@ export function NetworkConnections({
   const svgWidth = dimensions.width
   const svgHeight = dimensions.height
 
+  // Solo renderizar conexiones visibles o relevantes cuando el zoom es bajo
+  const visibleConnections = useMemo(() => {
+    if (scale > 0.7) {
+      // En zoom bajo, mostrar solo conexiones activas o de categoría seleccionada
+      if (activeCategory || selectedEventId) {
+        return redConnections.filter(([from, to]) => {
+          const fromData = eventsById.get(from)
+          const toData = eventsById.get(to)
+          if (!fromData || !toData) return false
+          
+          if (activeCategory) {
+            return fromData.event.category === activeCategory || toData.event.category === activeCategory
+          }
+          
+          if (selectedEventId) {
+            return from === selectedEventId || to === selectedEventId
+          }
+          
+          return false
+        })
+      }
+      // Si no hay filtro activo y zoom bajo, mostrar menos conexiones
+      return redConnections.slice(0, Math.floor(redConnections.length * 0.3))
+    }
+    // En zoom alto, mostrar todas las conexiones
+    return redConnections
+  }, [redConnections, activeCategory, selectedEventId, scale])
+
   return (
     <svg 
       className="absolute inset-0 w-full h-full pointer-events-none" 
       style={{ 
         zIndex: 1,
-        overflow: 'visible'
+        overflow: 'visible',
+        willChange: 'transform'
       }}
       width={svgWidth}
       height={svgHeight}
@@ -70,7 +101,7 @@ export function NetworkConnections({
           </feMerge>
         </filter>
       </defs>
-      {redConnections.map(([from, to], i) => {
+      {visibleConnections.map(([from, to], i) => {
         const fromData = eventsById.get(from)
         const toData = eventsById.get(to)
         if (!fromData || !toData) return null
@@ -113,4 +144,4 @@ export function NetworkConnections({
       })}
     </svg>
   )
-}
+})

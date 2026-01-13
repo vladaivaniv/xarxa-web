@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import Image from "next/image"
 
 interface Event {
@@ -14,14 +15,14 @@ interface CenterImageProps {
   position: { x: number; y: number; scale: number }
 }
 
-export function CenterImage({ event, position }: CenterImageProps) {
+export const CenterImage = memo(function CenterImage({ event, position }: CenterImageProps) {
   return (
     <div
-      className="absolute transition-all duration-700 ease-out"
+      className="absolute transition-all duration-700 ease-out will-change-transform"
       style={{
         left: `${position.x}%`,
         top: `${position.y}%`,
-        transform: "translate(-50%, -50%)",
+        transform: "translate3d(-50%, -50%, 0)",
       }}
     >
       {/* Red guide lines for focus state */}
@@ -49,4 +50,4 @@ export function CenterImage({ event, position }: CenterImageProps) {
       </div>
     </div>
   )
-}
+})

@@ -41,21 +41,11 @@ export function RadialNetwork() {
     return events.filter((e) => e.category === activeCategory)
   }, [activeCategory])
 
-  // Cargar posiciones desde localStorage al montar el componente
+  // Generar nuevas posiciones aleatorias en cada carga (no cargar desde localStorage)
+  // Esto asegura que las imágenes se distribuyan de forma caótica y diferente cada vez
   useEffect(() => {
-    if (!isLocalStorageAvailable()) return
-
-    try {
-      const saved = localStorage.getItem('nodePositions')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length === initialNodePositions.length) {
-          setNodePositions(parsed)
-        }
-      }
-    } catch (e) {
-      console.error('Error loading node positions:', e)
-    }
+    // Siempre usar las posiciones iniciales mezcladas (ya son aleatorias)
+    setNodePositions(initialNodePositions)
   }, [])
 
   // Guardar posiciones en localStorage cuando cambien (con debounce para mejor rendimiento)

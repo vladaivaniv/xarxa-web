@@ -56,7 +56,8 @@ export const events = [
   { id: 45, title: "45", category: "aturat", image: getImagePath("/CONTRAIMATGES/45.webp") },
 ]
 
-export const initialNodePositions = [
+// Posiciones base (todas las posiciones disponibles)
+const basePositions = [
   { x: 65, y: 40 },
   { x: 74, y: 49 },
   { x: 83, y: 54 },
@@ -103,6 +104,19 @@ export const initialNodePositions = [
   { x: 84, y: 25 },
   { x: 84, y: 42 },
 ]
+
+// Función para mezclar aleatoriamente un array (Fisher-Yates shuffle)
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+// Mezclar las posiciones de forma caótica
+export const initialNodePositions = shuffleArray(basePositions)
 
 export const generateConnectionsByCategory = (): number[][] => {
   const connections: number[][] = []

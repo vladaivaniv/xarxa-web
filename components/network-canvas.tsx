@@ -40,8 +40,10 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   const imagesCache = useRef<Map<number, HTMLImageElement>>(new Map())
   const hoveredNodeRef = useRef<number | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const floatAnimationRef = useRef<number | null>(null)
   const canvasSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 })
   const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const animationTimeRef = useRef<number>(0)
 
   // Líneas eliminadas - solo mostramos imágenes/nodos
 
@@ -60,6 +62,21 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     // No multiplicar por scale - el zoom viene del transform CSS
     return Math.max(minSize, Math.min(maxSize, baseSize))
   }, [dimensions])
+
+  // Calcular offset de movimiento suave para cada nodo
+  const getNodeFloatOffset = useCallback((nodeId: number) => {
+    const time = animationTimeRef.current
+    // Usar el ID del nodo como fase única para que cada nodo se mueva de forma diferente
+    const phase = nodeId * 0.5
+    // Movimiento lento: amplitud pequeña (8-12 píxeles) y velocidad baja
+    const amplitude = 8 + (nodeId % 3) * 2 // Variar amplitud entre 8-12px
+    const speed = 0.0008 // Velocidad muy lenta
+    
+    return {
+      x: Math.sin(time * speed + phase) * amplitude,
+      y: Math.cos(time * speed + phase * 1.3) * amplitude,
+    }
+  }, [])
 
   // Dibujar en el canvas
   const drawCanvas = useCallback(() => {
@@ -146,8 +163,21 @@ export const NetworkCanvas = memo(function NetworkCanvas({
       const fromScaledPos = scaleNodePosition(fromPos.x, fromPos.y)
       const toScaledPos = scaleNodePosition(toPos.x, toPos.y)
       
-      const fromPixelPos = getPixelPos(fromScaledPos.x, fromScaledPos.y)
-      const toPixelPos = getPixelPos(toScaledPos.x, toScaledPos.y)
+      const fromBasePixelPos = getPixelPos(fromScaledPos.x, fromScaledPos.y)
+      const toBasePixelPos = getPixelPos(toScaledPos.x, toScaledPos.y)
+      
+      // Aplicar offset de movimiento suave a las líneas también (solo si no hay zoom)
+      const fromFloatOffset = (selectedEventId === fromId || scale > 1.0) ? { x: 0, y: 0 } : getNodeFloatOffset(fromId)
+      const toFloatOffset = (selectedEventId === toId || scale > 1.0) ? { x: 0, y: 0 } : getNodeFloatOffset(toId)
+      
+      const fromPixelPos = {
+        x: fromBasePixelPos.x + fromFloatOffset.x,
+        y: fromBasePixelPos.y + fromFloatOffset.y,
+      }
+      const toPixelPos = {
+        x: toBasePixelPos.x + toFloatOffset.x,
+        y: toBasePixelPos.y + toFloatOffset.y,
+      }
       
       // Dibujar línea entre los dos nodos
       ctx.beginPath()
@@ -167,14 +197,21 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
       const pos = nodePositions[eventData.idx]
       const scaledPos = scaleNodePosition(pos.x, pos.y)
-      const nodePos = getPixelPos(scaledPos.x, scaledPos.y)
-
-      const img = imagesCache.current.get(event.id)
-      if (!img) continue
-
+      const baseNodePos = getPixelPos(scaledPos.x, scaledPos.y)
+      
       const isSelected = selectedEventId === event.id
       const isNearest = nearestNodeId === event.id && scale > 1.5
       const isHovered = currentHovered === event.id
+      
+      // Aplicar offset de movimiento suave (solo si no está seleccionado o en zoom)
+      const floatOffset = (isSelected || scale > 1.0) ? { x: 0, y: 0 } : getNodeFloatOffset(event.id)
+      const nodePos = {
+        x: baseNodePos.x + floatOffset.x,
+        y: baseNodePos.y + floatOffset.y,
+      }
+
+      const img = imagesCache.current.get(event.id)
+      if (!img) continue
 
       // Calcular tamaño del nodo (más grande si está seleccionado/hovered)
       let drawSize = nodeSize
@@ -285,6 +322,33 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
     loadImages()
   }, [])
+
+  // Actualizar tiempo de animación continuamente para el movimiento de los nodos
+  useEffect(() => {
+    const animate = () => {
+      animationTimeRef.current = Date.now()
+      // Redibujar canvas para actualizar posiciones
+      if (drawCanvasRef.current) {
+        drawCanvasRef.current()
+      }
+      // Solo continuar animando si no hay zoom activo (para mejor rendimiento)
+      if (scale <= 1.0) {
+        floatAnimationRef.current = requestAnimationFrame(animate)
+      }
+    }
+    
+    // Iniciar animación solo si no hay zoom activo
+    if (scale <= 1.0) {
+      floatAnimationRef.current = requestAnimationFrame(animate)
+    }
+    
+    return () => {
+      if (floatAnimationRef.current !== null) {
+        cancelAnimationFrame(floatAnimationRef.current)
+        floatAnimationRef.current = null
+      }
+    }
+  }, [scale])
 
   // Re-dibujar cuando cambian las dependencias (con debouncing)
   // Incluir scale explícitamente para asegurar redibujado durante zoom

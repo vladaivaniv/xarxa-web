@@ -1,0 +1,23 @@
+{
+  "name": "Dins de la lent - Vlada Ivaniv",
+  "short_name": "Dins de la lent",
+  "description": "Com les imatges construeixen la manera com mirem, pensem i ens mostrem en el món digital contemporani.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -3,10 +3,10 @@
 import { cn } from "@/lib/utils"
 
 const categories = [
-  { id: "contraimatges", label: "contraimatges" },
-  { id: "ia", label: "ia" },
-  { id: "poder", label: "poder" },
-  { id: "xarxes", label: "xarxes" },
+  { id: "aturat", label: "Atura't" },
+  { id: "hiperrealitat", label: "Hiperrealitat" },
+  { id: "poder", label: "Poder" },
+  { id: "xarxes", label: "Xarxes" },
 ]
 
 interface CategoryFiltersProps {

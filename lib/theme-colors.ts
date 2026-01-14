@@ -1,15 +1,15 @@
 export const themeColors = {
   xarxes: "#dc2626",
-  ia: "#3b82f6",
+  hiperrealitat: "#3b82f6",
   poder: "#f59e0b",
-  contraimatges: "#10b981",
+  aturat: "#10b981",
 } as const
 
 export const themeColorsHover = {
   xarxes: "rgba(220, 38, 38, 0.3)",
-  ia: "rgba(59, 130, 246, 0.3)",
+  hiperrealitat: "rgba(59, 130, 246, 0.3)",
   poder: "rgba(245, 158, 11, 0.3)",
-  contraimatges: "rgba(16, 185, 129, 0.3)",
+  aturat: "rgba(16, 185, 129, 0.3)",
 } as const
 
 export const getThemeColor = (category: string): string => {

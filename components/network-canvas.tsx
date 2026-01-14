@@ -43,7 +43,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   const floatAnimationRef = useRef<number | null>(null)
   const canvasSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 })
   const devicePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-  const animationTimeRef = useRef<number>(0)
+  const animationTimeRef = useRef<number>(typeof performance !== 'undefined' ? performance.now() : 0)
 
   // Líneas eliminadas - solo mostramos imágenes/nodos
 
@@ -66,6 +66,11 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   // Calcular offset de movimiento suave para cada nodo
   const getNodeFloatOffset = useCallback((nodeId: number) => {
     const time = animationTimeRef.current
+    // Asegurar que el tiempo sea válido (no NaN, no infinito)
+    if (!isFinite(time) || isNaN(time)) {
+      return { x: 0, y: 0 }
+    }
+    
     // Usar el ID del nodo como fase única para que cada nodo se mueva de forma diferente
     const phase = nodeId * 0.8
     // Movimiento más amplio y suave: amplitud entre 20-30 píxeles
@@ -83,9 +88,13 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     const wave3Y = Math.cos(time * speed3 + phase * 2.5) * (baseAmplitude * 0.25)
     
     // Combinar todas las ondas para movimiento fluido y natural
+    const x = wave1X + wave2X + wave3X
+    const y = wave1Y + wave2Y + wave3Y
+    
+    // Asegurar que los valores sean finitos
     return {
-      x: wave1X + wave2X + wave3X,
-      y: wave1Y + wave2Y + wave3Y,
+      x: isFinite(x) ? x : 0,
+      y: isFinite(y) ? y : 0,
     }
   }, [])
 
@@ -336,55 +345,74 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
   // Actualizar tiempo de animación continuamente para el movimiento de los nodos
   useEffect(() => {
-    let startTime = Date.now()
-    let lastFrameTime = performance.now()
+    let startTime = performance.now()
+    let animationId: number | null = null
+    let isRunning = true
     
-    const animate = (currentTime: number) => {
-      // Usar tiempo relativo desde el inicio para movimiento más suave
-      const elapsed = currentTime - startTime
-      animationTimeRef.current = elapsed
+    const animate = () => {
+      if (!isRunning) return
       
-      // Calcular delta time para interpolación suave
-      const deltaTime = currentTime - lastFrameTime
-      lastFrameTime = currentTime
-      
-      // Redibujar canvas para actualizar posiciones
-      if (drawCanvasRef.current) {
-        drawCanvasRef.current()
-      }
-      
-      // Solo continuar animando si no hay zoom activo (para mejor rendimiento)
-      if (scale <= 1.0) {
-        floatAnimationRef.current = requestAnimationFrame(animate)
+      try {
+        // Calcular tiempo transcurrido desde el inicio
+        const currentTime = performance.now()
+        const elapsed = currentTime - startTime
+        
+        // Usar módulo para evitar desbordamiento pero mantener continuidad
+        // El módulo es lo suficientemente grande para no causar saltos visibles
+        animationTimeRef.current = elapsed % (1000 * 60 * 60 * 24) // Reset cada 24 horas
+        
+        // Redibujar canvas para actualizar posiciones
+        // El movimiento solo se aplica cuando scale <= 1.0, pero el tiempo sigue actualizándose
+        if (drawCanvasRef.current) {
+          drawCanvasRef.current()
+        }
+        
+        // Continuar animando siempre - esto asegura que nunca se detenga
+        animationId = requestAnimationFrame(animate)
+        floatAnimationRef.current = animationId
+      } catch (error) {
+        // Si hay un error, intentar continuar de todas formas
+        console.warn('Error en animación:', error)
+        if (isRunning) {
+          animationId = requestAnimationFrame(animate)
+          floatAnimationRef.current = animationId
+        }
       }
     }
     
-    // Iniciar animación solo si no hay zoom activo
-    if (scale <= 1.0) {
-      startTime = Date.now()
-      lastFrameTime = performance.now()
-      floatAnimationRef.current = requestAnimationFrame(animate)
-    }
+    // Iniciar animación
+    startTime = performance.now()
+    animationId = requestAnimationFrame(animate)
+    floatAnimationRef.current = animationId
     
     return () => {
+      isRunning = false
+      if (animationId !== null) {
+        cancelAnimationFrame(animationId)
+      }
       if (floatAnimationRef.current !== null) {
         cancelAnimationFrame(floatAnimationRef.current)
         floatAnimationRef.current = null
       }
     }
-  }, [scale])
+  }, []) // Sin dependencias para que solo se ejecute una vez al montar
 
   // Re-dibujar cuando cambian las dependencias (con debouncing)
   // Incluir scale explícitamente para asegurar redibujado durante zoom
+  // Nota: La animación continua también redibuja, así que esto solo se usa para cambios importantes
   useEffect(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
+    // Solo redibujar inmediatamente si hay zoom activo (la animación continua no está activa)
+    if (scale > 1.0) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(() => {
+        drawCanvas()
+        animationFrameRef.current = null
+      })
     }
-    
-    animationFrameRef.current = requestAnimationFrame(() => {
-      drawCanvas()
-      animationFrameRef.current = null
-    })
+    // Si scale <= 1.0, la animación continua ya se encarga del redibujado
     
     return () => {
       if (animationFrameRef.current) {
@@ -392,6 +420,7 @@ export const NetworkCanvas = memo(function NetworkCanvas({
       }
     }
   }, [drawCanvas, scale, dimensions.width, dimensions.height])
+
 
   // Detectar qué nodo está bajo el cursor
   // Nota: Las coordenadas vienen del evento del mouse, que ya están en el espacio del canvas

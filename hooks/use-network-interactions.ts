@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import type React from "react"
 import { events, eventsById } from "@/lib/network-data"
-import { nodeSpreadFactor } from "@/lib/theme-colors"
+import * as themeColors from "@/lib/theme-colors"
+const { nodeSpreadFactor } = themeColors
 
 interface UseNetworkInteractionsProps {
   dimensions: { width: number; height: number }

@@ -20,4 +20,4 @@ export const getThemeColorHover = (category: string): string => {
   return themeColorsHover[category as keyof typeof themeColorsHover] || "rgba(255, 255, 255, 0.3)"
 }
 
-export const nodeSpreadFactor = 1.4
+export const nodeSpreadFactor: number = 1.4

@@ -19,7 +19,6 @@ const nextConfig = {
   },
   // Configuración para evitar errores 500
   reactStrictMode: true,
-  swcMinify: true,
   // Configuración para exportación estática (GitHub Pages)
   output: 'export',
   basePath: '/xarxa-web',

@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "Dins de la lent - Vlada Ivaniv",
   description: "Com les imatges construeixen la manera com mirem, pensem i ens mostrem en el món digital contemporani.",
   authors: [{ name: "Vlada Ivaniv", url: "https://www.instagram.com/vladaa.design/" }],
+  icons: {
+    icon: { url: '/xarxa-web/favicon.ico', type: 'image/x-icon' },
+  },
 }
 
 export const viewport: Viewport = {
@@ -25,6 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/xarxa-web/favicon.ico" type="image/x-icon" />
+      </head>
       <body className="font-sans antialiased">
         {children}
       </body>

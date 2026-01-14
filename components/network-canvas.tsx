@@ -67,14 +67,25 @@ export const NetworkCanvas = memo(function NetworkCanvas({
   const getNodeFloatOffset = useCallback((nodeId: number) => {
     const time = animationTimeRef.current
     // Usar el ID del nodo como fase única para que cada nodo se mueva de forma diferente
-    const phase = nodeId * 0.5
-    // Movimiento lento: amplitud pequeña (8-12 píxeles) y velocidad baja
-    const amplitude = 8 + (nodeId % 3) * 2 // Variar amplitud entre 8-12px
-    const speed = 0.0008 // Velocidad muy lenta
+    const phase = nodeId * 0.8
+    // Movimiento más amplio y suave: amplitud entre 20-30 píxeles
+    const baseAmplitude = 20 + (nodeId % 5) * 2 // Variar amplitud entre 20-30px
+    const speed1 = 0.0015 // Velocidad principal suave
+    const speed2 = 0.0008 // Velocidad secundaria para movimiento orgánico
+    const speed3 = 0.0004 // Velocidad terciaria para micro-movimientos
     
+    // Combinar múltiples ondas para movimiento más suave, orgánico y natural
+    const wave1X = Math.sin(time * speed1 + phase) * baseAmplitude
+    const wave1Y = Math.cos(time * speed1 + phase * 1.4) * baseAmplitude
+    const wave2X = Math.sin(time * speed2 + phase * 2.3) * (baseAmplitude * 0.5)
+    const wave2Y = Math.cos(time * speed2 + phase * 1.8) * (baseAmplitude * 0.5)
+    const wave3X = Math.sin(time * speed3 + phase * 3.1) * (baseAmplitude * 0.25)
+    const wave3Y = Math.cos(time * speed3 + phase * 2.5) * (baseAmplitude * 0.25)
+    
+    // Combinar todas las ondas para movimiento fluido y natural
     return {
-      x: Math.sin(time * speed + phase) * amplitude,
-      y: Math.cos(time * speed + phase * 1.3) * amplitude,
+      x: wave1X + wave2X + wave3X,
+      y: wave1Y + wave2Y + wave3Y,
     }
   }, [])
 
@@ -325,12 +336,23 @@ export const NetworkCanvas = memo(function NetworkCanvas({
 
   // Actualizar tiempo de animación continuamente para el movimiento de los nodos
   useEffect(() => {
-    const animate = () => {
-      animationTimeRef.current = Date.now()
+    let startTime = Date.now()
+    let lastFrameTime = performance.now()
+    
+    const animate = (currentTime: number) => {
+      // Usar tiempo relativo desde el inicio para movimiento más suave
+      const elapsed = currentTime - startTime
+      animationTimeRef.current = elapsed
+      
+      // Calcular delta time para interpolación suave
+      const deltaTime = currentTime - lastFrameTime
+      lastFrameTime = currentTime
+      
       // Redibujar canvas para actualizar posiciones
       if (drawCanvasRef.current) {
         drawCanvasRef.current()
       }
+      
       // Solo continuar animando si no hay zoom activo (para mejor rendimiento)
       if (scale <= 1.0) {
         floatAnimationRef.current = requestAnimationFrame(animate)
@@ -339,6 +361,8 @@ export const NetworkCanvas = memo(function NetworkCanvas({
     
     // Iniciar animación solo si no hay zoom activo
     if (scale <= 1.0) {
+      startTime = Date.now()
+      lastFrameTime = performance.now()
       floatAnimationRef.current = requestAnimationFrame(animate)
     }
     
